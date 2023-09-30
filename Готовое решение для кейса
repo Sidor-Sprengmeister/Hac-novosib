@@ -1,0 +1,108 @@
+# lex rank - unsupervised upproach
+!pip install sumy
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lex_rank import LexRankSummarizer
+from sumy.nlp.stemmers import Stemmer
+import nltk
+from nltk.corpus import stopwords
+import numpy as np
+
+
+# nltk.download('stopwords')
+
+# Допольнительные стоп-слова можно скачать здесь
+# https://github.com/stopwords-iso/stopwords-ru/blob/master/raw/stop-words-russian.txt
+# но в этот список мы также добавили пару примеров вручную, поэтому прикладываем готовый файл. 
+# Вы также можете модифицировать на свое усмотрение, или вовсе от него отказаться
+
+with open("stop-words-russian.txt", 'r') as f:
+    extra_stop_words = f.readlines()
+    extra_stop_words = [line.strip() for line in extra_stop_words]
+
+
+def sumy_method(text, n_sent: int = 4):
+    
+    parser = PlaintextParser.from_string(text, Tokenizer("russian"))
+    
+    stemmer = Stemmer("russian")
+    summarizer = LexRankSummarizer(stemmer)
+    stopwords_ru = stopwords.words('russian')
+    stopwords_ru.extend(extra_stop_words)
+    summarizer.stop_words = stopwords_ru
+    
+    #Summarize the document with n_sent sentences
+    summary = summarizer(parser.document, n_sent)
+    dp = []
+    if len(summary)> 0:
+        for i in summary:
+            lp = str(i)
+            dp.append(lp)
+    
+        final_sentence = ' '.join(dp)
+    else:
+        final_sentence = ''
+    if len(final_sentence.split(" "))>512:
+        final_sentence = " ".join(final_sentence.split(" ")[:512])
+    return final_sentence
+
+#Следующая часть
+import pandas as pd
+import os
+PATH_TO_DATA = 'test/'
+dataset = pd.read_csv(os.path.join(PATH_TO_DATA, "test.csv"))
+dataset.head(5)
+
+dataset[dataset.video_name == '48.mp4']
+
+with open(os.path.join(PATH_TO_DATA, 'test_stt', '48.txt'), 'r') as f:
+        lines = f.readlines()
+        lines = [line.strip() for line in lines]
+lines
+
+import nltk
+from nltk.translate import meteor
+from nltk import word_tokenize, sent_tokenize
+nltk.download('wordnet')
+
+#Тут мы проверяем наличие датаборда, который нам нужно будет создать
+import nltk
+nltk.download('punkt')
+dataset['len'] = dataset.description.apply(lambda l : len(sent_tokenize(l)))
+print("Среднее число предложений в трейн датасете", np.mean(dataset['len'].to_list()))
+print("Медиана", np.median(dataset['len'].to_list()))
+
+# Очистим STT от временных кодов
+from tqdm import tqdm
+tqdm.pandas()
+def del_timestamps(text):
+    text = text.split("]  ")[1:]
+    return " ".join(text)
+
+def gen_description(stt_name, n_sent, category_name):
+
+    with open(os.path.join(PATH_TO_DATA, 'test_stt', stt_name), 'r') as f:
+        lines = f.readlines()
+        lines = [del_timestamps(line.strip()) for line in lines]
+        lines = " ".join(lines)
+        res = sumy_method(lines, n_sent)
+        if len(res)>0:
+            return res
+        else:
+            return category_name
+
+#Проверяем быстродействие алгоритма
+%%time
+dataset['generated_description'] = np.nan
+dataset['generated_description'] = dataset.progress_apply(lambda l: gen_description(l.stt_name, 4, l.category_name), axis=1)
+
+#Используются один раз на весь алгоритм
+del dataset['stt_name']
+del dataset['category_name']
+
+#Выводит нам полученный датасет
+dataset
+
+# Сохранение датасета
+df= dataset
+df.to_csv("file1.csv", index=False)
