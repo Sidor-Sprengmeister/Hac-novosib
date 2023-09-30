@@ -53,6 +53,7 @@ PATH_TO_DATA = 'test/'
 dataset = pd.read_csv(os.path.join(PATH_TO_DATA, "test.csv"))
 dataset.head(5)
 
+#Как пример находим из общего колличества определенный файл
 dataset[dataset.video_name == '48.mp4']
 
 with open(os.path.join(PATH_TO_DATA, 'test_stt', '48.txt'), 'r') as f:
