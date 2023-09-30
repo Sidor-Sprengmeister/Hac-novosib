@@ -94,6 +94,8 @@ def gen_description(stt_name, n_sent, category_name):
 
 #Проверяем быстродействие алгоритма
 %%time
+import nltk
+nltk.download('stopwords')
 dataset['generated_description'] = np.nan
 dataset['generated_description'] = dataset.progress_apply(lambda l: gen_description(l.stt_name, 4, l.category_name), axis=1)
 
